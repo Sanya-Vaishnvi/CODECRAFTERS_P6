@@ -4,263 +4,322 @@ You need to build a manager for all the DA-IICT clubs. The manager ensures that 
 
 CODE:
 
+
 #include <iostream>
+#include <cstdio>
 #include <fstream>
 #include <sstream>
-#include <string>
-#include <cstring>
 #include <vector>
 #include <unordered_map>
+#include <algorithm>
+#include <string>
 
 using namespace std;
 
-// Forward declarations
-class Member;
-
-// Enum for club categories
-enum ClubCategory {
-    ARTS,
-    SCIENCE_AND_TECHNOLOGY,
-    SPORTS,
-    CULTURE,
+// Define club categories
+enum class ClubCategory {
+    Arts,
+    Science,
+    Sports,
+    Culture
 };
 
-// Club class
-class Club {
-private:
+// Define a structure for a club
+struct Club {
     string name;
     ClubCategory category;
-    vector<Member*> members;
 
-public:
-    Club(const string& name, ClubCategory category) {
-        this->name = name;
-        this->category = category;
-    }
-
-    const string& getName() const {
-        return name;
-    }
-
-    ClubCategory getCategory() const {
-        return category;
-    }
-
-    void addMember(Member* member) {
-        members.push_back(member);
-    }
-
-    const vector<Member*>& getMembers() const {
-        return members;
+    Club(const string& n, ClubCategory c) {
+        this->name = n;
+        this->category = c;
     }
 };
 
-// Member class
-class Member {
-private:
+string toLower(string str) {
+    transform(str.begin(), str.end(), str.begin(), ::tolower);
+    return str;
+}
+
+// Define a structure for a member
+struct Member {
     string name;
-    int ID;
+    int id;
     vector<Club*> clubs;
 
-public:
-    Member(const string& name, int ID) : name(name), ID(ID) {}
-
-    const string& getName() const {
-        return name;
-    }
-
-    int getID() const {
-        return ID;
-    }
-
-    void joinClub(Club* club) {
-        clubs.push_back(club);
-        club->addMember(this);
-    }
-
-    const vector<Club*>& getClubs() const {
-        return clubs;
+    Member(const string& n, int i) {
+        this->name = n;
+        this->id = i;
     }
 };
 
-// Club Manager class
+// Define a manager class to manage clubs and members
 class ClubManager {
 private:
-    unordered_map<string, Member*> nameToMember;
-    unordered_map<int, Member*> idToMember;
-    unordered_map<string, Club*> nameToClub;
-    unordered_map<ClubCategory, vector<Club*>> categoryToClubs;
+    unordered_map<string, Club*> clubsByName;
+    unordered_map<string, vector<Club*>> clubsByCategory;
+    unordered_map<int, Member*> membersById;
+    unordered_map<string, Member*> membersByName;
 
 public:
-    void loadMembersFromCSV(const string& filename) {
+    // Load data from CSV file
+    void loadData(const string& filename) {
         ifstream file(filename);
-        if (!file.is_open()) {
-            cerr << "Failed to open " << filename << endl;
-            return;
-        }
-
         string line;
+
         while (getline(file, line)) {
             stringstream ss(line);
-            string name;
-            int ID;
+            string name, idStr, clubsStr;
+
+            getline(ss, name, ',');
+            getline(ss, idStr, ',');
+            getline(ss, clubsStr, ',');
+
+            int id;
+            try {
+                id = stoi(idStr);
+            } catch (const invalid_argument& e) {
+                cerr << "";
+                continue;
+            }
+
+            // Create member
+            Member* member = new Member(name, id);
+
+            // Add member to membersById and membersByName
+            membersById[id] = member;
+            membersByName[name] = member;
+
+            // Parse clubs
+            stringstream clubsSS(clubsStr);
             string clubName;
+            while (getline(clubsSS, clubName, ';')) {
+                Club* club;
+                if (clubsByName.find(clubName) == clubsByName.end()) {
+                    // Create new club if it doesn't exist
 
-            if (getline(ss, name, ',') && (ss >> ID) && getline(ss >> ws, clubName)) {
-                // Trim leading and trailing whitespace from clubName
-                clubName.erase(0, clubName.find_first_not_of(" \t\n\r\f\v"));
-                clubName.erase(clubName.find_last_not_of(" \t\n\r\f\v") + 1);
+                    if ((clubName == "PMMC") || (clubName == "Muse") || (clubName == "Music") || (clubName == "Dance")) {
+                        club = new Club(clubName, ClubCategory::Arts); // Default category for example
+                        clubsByName[clubName] = club;
+                        clubsByCategory["Arts"].push_back(club); // Default category for example
+                    }
+                    if ((clubName == "Research") || (clubName == "Programming") || (clubName == "MSTC") || (clubName == "Business") || (clubName == "Press")) {
+                        club = new Club(clubName, ClubCategory::Science); // Default category for example
+                        clubsByName[clubName] = club;
+                        clubsByCategory["Science"].push_back(club); // Default category for example
+                    }
+                    if ((clubName == "Cubing") || (clubName == "Chess")) {
+                        club = new Club(clubName, ClubCategory::Sports); // Default category for example
+                        clubsByName[clubName] = club;
+                        clubsByCategory["Sports"].push_back(club); // Default category for example
+                    }
+                    if ((clubName == "Heritage") || (clubName == "Khelaiya") || (clubName == "DTG")) {
+                        club = new Club(clubName, ClubCategory::Culture); // Default category for example
+                        clubsByName[clubName] = club;
+                        clubsByCategory["Culture"].push_back(club); // Default category for example
+                    }
+                } else {
+                    club = clubsByName[clubName];
+                }
+                member->clubs.push_back(club);
+            }
+        }
+    }
 
-                addMember(name, ID, clubName);
+    // Search for a member by name or ID
+    Member* searchMember(const string& query) {
+        string lowercaseQuery = toLower(query);
+        for (auto& entry : membersByName) {
+            string lowercaseName = toLower(entry.first);
+            if (lowercaseName == lowercaseQuery) {
+                return entry.second;
+            }
+        }
+        try {
+            int id = stoi(query);
+            if (membersById.find(id) != membersById.end()) {
+                return membersById[id];
+            }
+        } catch (const invalid_argument& e) {
+            cerr << "Invalid query: " << query << endl;
+        }
+        return nullptr;
+    }
+
+    // Search for clubs by name
+    vector<Club*> searchClub(const string& query) {
+        vector<Club*> result;
+        string lowercaseQuery = toLower(query);
+        for (auto& entry : clubsByName) {
+            string lowercaseName = toLower(entry.first);
+            if (lowercaseName == lowercaseQuery) {
+                result.push_back(entry.second);
             }
         }
 
-        file.close();
-    }
-
-    void addMember(const string& name, int ID, const string& clubName) {
-        Member* newMember = new Member(name, ID);
-        nameToMember[name] = newMember;
-        idToMember[ID] = newMember;
-
-        // Check if the club already exists
-        if (nameToClub.find(clubName) != nameToClub.end()) {
-            Club* club = nameToClub[clubName];
-            newMember->joinClub(club);
-        } else {
-            // Create a new club if it doesn't exist
-            Club* newClub = new Club(clubName, ARTS); // You may set a default category here
-            nameToClub[clubName] = newClub;
-            categoryToClubs[newClub->getCategory()].push_back(newClub);
-            newMember->joinClub(newClub);
-        }
-    }
-
-    void printMember(const string& name) {
-        if (nameToMember.find(name) != nameToMember.end()) {
-            Member* member = nameToMember[name];
-            cout << "Member Name: " << member->getName() << endl;
-            cout << "Member ID: " << member->getID() << endl;
-            cout << "Clubs Joined: " ;
-            for (Club* club : member->getClubs()) {
-                cout<< club->getName() << endl;
+        // Print members of found clubs
+        for (Club* club : result) {
+            int i = 1;
+            cout << endl <<"Members of the " << club->name << " club :" << endl;
+            for (auto& entry : membersByName) {
+                Member* member = entry.second;
+                for (Club* memberClub : member->clubs) {
+                    string lowercaseClubName = toLower(memberClub->name);
+                    if (lowercaseClubName == lowercaseQuery) {
+                        printf("%d) %-10s ID : %d\n", i, member->name.c_str(), member->id);
+                        i++;
+                        break; // Exit the loop once a member is found in the club
+                    }
+                }
             }
-        } else {
-            cout << "Member not found!" << endl;
         }
+
+        return result;
     }
 
-    void printClubJoined(const string& clubName) {
-        if (nameToClub.find(clubName) != nameToClub.end()) {
-            Club* club = nameToClub[clubName];
-            cout << "Club Name: " << club->getName() << endl;
-            cout << "Members Joined:" << endl;
-            for (Member* member : club->getMembers()) {
-                cout << member->getName() << endl;
+    // Search for clubs by category
+    vector<Club*> searchClubByCategory(const string& userInput) {
+        string lowercaseCategory = toLower(userInput);
+        ClubCategory category;
+        if (lowercaseCategory == "arts") {
+            category = ClubCategory::Arts;
+        } else if (lowercaseCategory == "science") {
+            category = ClubCategory::Science;
+        } else if (lowercaseCategory == "sports") {
+            category = ClubCategory::Sports;
+        } else if (lowercaseCategory == "culture") {
+            category = ClubCategory::Culture;
+        } else {
+            cout << "Invalid category." << endl;
+            return {};
+        }
+        vector<Club*> result;
+        for (auto& entry : clubsByCategory) {
+            if (category == ClubCategory::Arts && entry.first == "Arts") {
+                result.insert(result.end(), entry.second.begin(), entry.second.end());
+            } else if (category == ClubCategory::Science && entry.first == "Science") {
+                result.insert(result.end(), entry.second.begin(), entry.second.end());
+            } else if (category == ClubCategory::Sports && entry.first == "Sports") {
+                result.insert(result.end(), entry.second.begin(), entry.second.end());
+            } else if (category == ClubCategory::Culture && entry.first == "Culture") {
+                result.insert(result.end(), entry.second.begin(), entry.second.end());
             }
-        } else {
-            cout << "Club not found!" << endl;
         }
+
+        // Print clubs and members of found category
+        cout << "\nClubs in the Category " << userInput << " :" << endl << endl;
+        int i = 1;
+        for (Club* club : result) {
+            cout << " " << i << "] " << club->name << " : " << endl ;
+            int j = 1;
+            for (auto& entry : membersByName) {
+                Member* member = entry.second;
+                for (Club* memberClub : member->clubs) {
+                    if (memberClub == club) {
+                        printf("  %d) %-10s ID : %d\n", j, member->name.c_str(), member->id);
+                        j++;
+                        break; // Exit the loop once a member is found in the club
+                    }
+                }
+            }
+            cout << endl;
+            i++;
+        }
+        cout << endl;
+
+        return result;
     }
-
-    void searchByName(const string& name) {
-        printMember(name);
-    }
-
-    void searchByID(int ID) {
-        if (idToMember.find(ID) != idToMember.end()) {
-            Member* member = idToMember[ID];
-            printMember(member->getName());
-        } else {
-            cout << "Member not found!" << endl;
-        }
-    }
-
-    void searchByClubName(const string& clubName) {
-        printClubJoined(clubName);
-    }
-
-    void searchByCat (const string& cat) {
-        if (cat == "Arts") {
-            string music = ",music";
-            string dance = ",dance";
-            searchByClubName(music);
-            searchByClubName(dance);
-            return;
-        }
-        else if (cat == "Science") {
-            
-            return;
-        }
-        else if (cat == "Sports") {
-
-            return;
-        }
-        else if (cat == "Culture") {
-            
-            return;
-        }
-        else {
-            cout << "No clubs of this Category ";
-        }
-    }
-
-    // Other member and club management functions...
-
-    // Rest of the ClubManager class...
 };
 
 int main() {
-    ClubManager clubManager;
+    ClubManager manager;
+    manager.loadData("data.csv");
 
-    // Load members from CSV file
-    clubManager.loadMembersFromCSV("members1.csv");
+    cout << "\n-----> Welcome to DA-IICT Club Community <-----\n";
 
-    int choice;
-    string name;
-    int ID;
-    string clubName;
+    string userInput;
+    do {
+        cout << "\nSEARCH OPTIONS :\n"
+             << " 1. Search by name\n"
+             << " 2. Search by ID\n"
+             << " 3. Search by club name\n"
+             << " 4. Search by club category\n"
+             << " 5. Exit\n"
+             << "\nENTER YOUR CHOICE : ";
+        getline(cin, userInput);
 
-    while (true) {
-        cout << "Menu:" << endl;
-        cout << "1. Search by Name" << endl;
-        cout << "2. Search by ID" << endl;
-        cout << "3. Search by Club Name" << endl;
-        cout << "4. Search By Category" << endl;
-        cout << "5. Exit" << endl;
-        cout << "Enter your choice: ";
-        cin >> choice;
-
-        string cat;
-
-        switch (choice) {
-            case 1:
-                cout << "Enter member name: ";
-                cin >> name;
-                clubManager.searchByName(name);
+        switch (stoi(userInput)) {
+            case 1: {
+                cout << "\nEnter the Member Name : ";
+                getline(cin, userInput);
+                Member* member = manager.searchMember(userInput);
+                if (member != nullptr) {
+                    cout << "\nMember Name : " << member->name << "\nID : " << member->id << endl;
+                    cout << "Clubs : ";
+                    for (size_t i = 0; i < member->clubs.size(); ++i) {
+                        cout << member->clubs[i]->name;
+                        if (i != member->clubs.size() - 1) {
+                            cout << ", ";
+                        }
+                    }
+                    cout << endl;
+                } else {
+                    cout << "Member not found." << endl;
+                }
                 break;
-            case 2:
-                cout << "Enter member ID: ";
-                cin >> ID;
-                clubManager.searchByID(ID);
+            }
+
+            case 2: {
+                cout << "\nEnter the ID : ";
+                getline(cin, userInput);
+                Member* member = manager.searchMember(userInput);
+                if (member != nullptr) {
+                    cout << "\nMember name : " << member->name << "\nID : " << member->id << endl;
+                    cout << "Clubs : ";
+                    for (size_t i = 0; i < member->clubs.size(); ++i) {
+                        cout << member->clubs[i]->name;
+                        if (i != member->clubs.size() - 1) {
+                            cout << ", ";
+                        }
+                    }
+                    cout << endl;
+                } else {
+                    cout << "Member not found." << endl;
+                }
                 break;
-            case 3:
-                cout << "Enter club name: ";
-                cin >> clubName;
-                clubManager.searchByClubName(clubName);
+            }
+
+            case 3: {
+                cout << "\nEnter the Club Name : ";
+                getline(cin, userInput);
+                vector<Club*> clubs = manager.searchClub(userInput);
+                if (clubs.empty()) {
+                    cout << "\nClub not found." << endl;
+                    cout << endl;
+                }
                 break;
-            case 4:
-                cout << "Enter the Category of the Club: ";
-                cin >> cat;
-                clubManager.searchByCat(cat);
+            }
+
+            case 4: {
+                cout << "\nEnter the Category (Arts, Science, Sports, Culture) : ";
+                getline(cin, userInput);
+                vector<Club*> clubs = manager.searchClubByCategory(userInput);
+                if (clubs.empty()) {
+                    cout << "No clubs found in category " << userInput << "." << endl;
+                }
                 break;
-            case 5:
-                cout << "Exiting..." << endl;
+            }
+
+            case 5: {
+                cout << "\n\tTHANK YOU!\n\nExiting program... " << endl;
                 return 0;
+            }
+
             default:
-                cout << "Invalid choice! Please enter a number between 1 and 5." << endl;
+                cout << "Invalid option. Please try again." << endl;
+                break;
         }
-    }
+
+    } while (true);
 
     return 0;
 }
