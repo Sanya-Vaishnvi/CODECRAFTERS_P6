@@ -16,11 +16,11 @@ CODE:
 using namespace std;
 
 // Define club categories
-enum class ClubCategory {
-    Arts,
-    Science,
-    Sports,
-    Culture
+enum class ClubCategory { 
+    Arts, 
+    Science, 
+    Sports, 
+    Culture 
 };
 
 // Define a structure for a club
@@ -95,7 +95,7 @@ public:
                 Club* club;
                 if (clubsByName.find(clubName) == clubsByName.end()) {
                     // Create new club if it doesn't exist
-
+                    
                     if ((clubName == "PMMC") || (clubName == "Muse") || (clubName == "Music") || (clubName == "Dance")) {
                         club = new Club(clubName, ClubCategory::Arts); // Default category for example
                         clubsByName[clubName] = club;
@@ -116,6 +116,8 @@ public:
                         clubsByName[clubName] = club;
                         clubsByCategory["Culture"].push_back(club); // Default category for example
                     }
+
+                    
                 } else {
                     club = clubsByName[clubName];
                 }
@@ -125,32 +127,62 @@ public:
     }
 
     // Search for a member by name or ID
-    Member* searchMember(const string& query) {
-        string lowercaseQuery = toLower(query);
-        for (auto& entry : membersByName) {
-            string lowercaseName = toLower(entry.first);
-            if (lowercaseName == lowercaseQuery) {
-                return entry.second;
+  /*  Member* searchMember(const string& query) {
+        if (membersByName.find(query) != membersByName.end()) {
+            return membersByName[query];
+        } else {
+            try {
+                int id = stoi(query);
+                if (membersById.find(id) != membersById.end()) {
+                    return membersById[id];
+                }
+            } catch (const invalid_argument& e) {
+                cerr << "Invalid query: " << query << endl;
             }
         }
+        return nullptr;
+    }  */
+
+    // Search for a member by name or ID
+// Search for members by name
+vector<Member*> searchMember(const string& query) {
+    vector<Member*> result;
+    for (auto& entry : membersByName) {
+        if (entry.first == query) {
+            result.push_back(entry.second);
+        }
+    }
+
+    if (result.empty()) {
         try {
             int id = stoi(query);
             if (membersById.find(id) != membersById.end()) {
-                return membersById[id];
+                result.push_back(membersById[id]);
             }
         } catch (const invalid_argument& e) {
             cerr << "Invalid query: " << query << endl;
         }
-        return nullptr;
     }
+
+    return result;
+}
+
+
 
     // Search for clubs by name
     vector<Club*> searchClub(const string& query) {
         vector<Club*> result;
-        string lowercaseQuery = toLower(query);
+        string trimmedQuery = query;
+        // Trim whitespace from the beginning and end of the query
+        trimmedQuery.erase(0, trimmedQuery.find_first_not_of(" \t\n\r\f\v"));
+        trimmedQuery.erase(trimmedQuery.find_last_not_of(" \t\n\r\f\v") + 1);
+
         for (auto& entry : clubsByName) {
-            string lowercaseName = toLower(entry.first);
-            if (lowercaseName == lowercaseQuery) {
+            string trimmedName = entry.first;
+            // Trim whitespace from the beginning and end of the club name
+            trimmedName.erase(0, trimmedName.find_first_not_of(" \t\n\r\f\v"));
+            trimmedName.erase(trimmedName.find_last_not_of(" \t\n\r\f\v") + 1);
+            if (trimmedName == trimmedQuery) {
                 result.push_back(entry.second);
             }
         }
@@ -161,13 +193,10 @@ public:
             cout << endl <<"Members of the " << club->name << " club :" << endl;
             for (auto& entry : membersByName) {
                 Member* member = entry.second;
-                for (Club* memberClub : member->clubs) {
-                    string lowercaseClubName = toLower(memberClub->name);
-                    if (lowercaseClubName == lowercaseQuery) {
-                        printf("%d) %-10s ID : %d\n", i, member->name.c_str(), member->id);
-                        i++;
-                        break; // Exit the loop once a member is found in the club
-                    }
+                if (find(member->clubs.begin(), member->clubs.end(), club) != member->clubs.end()) {
+                    // cout << " " << i << ") " << member->name << "     ID : " << member->id << endl;
+                    printf("%d) %-10s ID : %d\n", i, member->name.c_str(), member->id);
+                    i++;
                 }
             }
         }
@@ -176,21 +205,7 @@ public:
     }
 
     // Search for clubs by category
-    vector<Club*> searchClubByCategory(const string& userInput) {
-        string lowercaseCategory = toLower(userInput);
-        ClubCategory category;
-        if (lowercaseCategory == "arts") {
-            category = ClubCategory::Arts;
-        } else if (lowercaseCategory == "science") {
-            category = ClubCategory::Science;
-        } else if (lowercaseCategory == "sports") {
-            category = ClubCategory::Sports;
-        } else if (lowercaseCategory == "culture") {
-            category = ClubCategory::Culture;
-        } else {
-            cout << "Invalid category." << endl;
-            return {};
-        }
+    vector<Club*> searchClubByCategory(ClubCategory category) {
         vector<Club*> result;
         for (auto& entry : clubsByCategory) {
             if (category == ClubCategory::Arts && entry.first == "Arts") {
@@ -204,20 +219,18 @@ public:
             }
         }
 
+
         // Print clubs and members of found category
-        cout << "\nClubs in the Category " << userInput << " :" << endl << endl;
+        cout << "\nClubs in this category :" << endl << endl;
         int i = 1;
         for (Club* club : result) {
             cout << " " << i << "] " << club->name << " : " << endl ;
             int j = 1;
             for (auto& entry : membersByName) {
                 Member* member = entry.second;
-                for (Club* memberClub : member->clubs) {
-                    if (memberClub == club) {
-                        printf("  %d) %-10s ID : %d\n", j, member->name.c_str(), member->id);
-                        j++;
-                        break; // Exit the loop once a member is found in the club
-                    }
+                if (find(member->clubs.begin(), member->clubs.end(), club) != member->clubs.end()) {
+                    printf("  %d) %-10s ID : %d\n", j, member->name.c_str(), member->id);
+                    j++;
                 }
             }
             cout << endl;
@@ -248,24 +261,27 @@ int main() {
 
         switch (stoi(userInput)) {
             case 1: {
-                cout << "\nEnter the Member Name : ";
-                getline(cin, userInput);
-                Member* member = manager.searchMember(userInput);
-                if (member != nullptr) {
-                    cout << "\nMember Name : " << member->name << "\nID : " << member->id << endl;
-                    cout << "Clubs : ";
-                    for (size_t i = 0; i < member->clubs.size(); ++i) {
-                        cout << member->clubs[i]->name;
-                        if (i != member->clubs.size() - 1) {
-                            cout << ", ";
-                        }
-                    }
-                    cout << endl;
-                } else {
-                    cout << "Member not found." << endl;
+    cout << "\nEnter the Member Name : ";
+    getline(cin, userInput);
+    vector<Member*> members = manager.searchMember(userInput);
+    if (!members.empty()) {
+        cout << "\nMembers found with the name " << userInput << ":\n";
+        for (Member* member : members) {
+            cout << "\nMember Name : " << member->name << "\nID : " << member->id << endl;
+            cout << "Clubs : ";
+            for (size_t i = 0; i < member->clubs.size(); ++i) {
+                cout << member->clubs[i]->name;
+                if (i != member->clubs.size() - 1) {
+                    cout << ", ";
                 }
-                break;
             }
+            cout << endl;
+        }
+    } else {
+        cout << "Member not found." << endl;
+    }
+    break;
+}
 
             case 2: {
                 cout << "\nEnter the ID : ";
@@ -286,7 +302,6 @@ int main() {
                 }
                 break;
             }
-
             case 3: {
                 cout << "\nEnter the Club Name : ";
                 getline(cin, userInput);
@@ -297,22 +312,42 @@ int main() {
                 }
                 break;
             }
-
             case 4: {
                 cout << "\nEnter the Category (Arts, Science, Sports, Culture) : ";
                 getline(cin, userInput);
-                vector<Club*> clubs = manager.searchClubByCategory(userInput);
-                if (clubs.empty()) {
+                ClubCategory category;
+                ;
+                if (userInput == "Arts") {
+                    category = ClubCategory::Arts;
+                } else if (userInput == "Science") {
+                    category = ClubCategory::Science;
+                } else if (userInput == "Sports") {
+                    category = ClubCategory::Sports;
+                } else if (userInput == "Culture") {
+                    category = ClubCategory::Culture;
+                } else {
+                    cout << "Invalid category." << endl;
+                    break;
+                }
+                vector<Club*> clubs = manager.searchClubByCategory(category);
+                if (!clubs.empty()) {
+                    cout << "Clubs in the Category " << userInput << " : ";
+                    for (size_t i = 0; i < clubs.size(); ++i) {
+                        cout << clubs[i]->name;
+                        if (i != clubs.size() - 1) {
+                            cout << ", ";
+                        }
+                    }
+                    cout << endl;
+                } else {
                     cout << "No clubs found in category " << userInput << "." << endl;
                 }
                 break;
             }
-
             case 5: {
                 cout << "\n\tTHANK YOU!\n\nExiting program... " << endl;
                 return 0;
             }
-
             default:
                 cout << "Invalid option. Please try again." << endl;
                 break;
